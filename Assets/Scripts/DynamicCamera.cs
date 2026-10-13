@@ -8,6 +8,12 @@ using UnityEngine;
 public class DynamicCamera : MonoBehaviour
 {
     public static DynamicCamera Instance { get; private set; }
+    [Header("Screen Shake")]
+    public float hitShakeStrength = 0.25f;   // world units at closest zoom
+    public float hitShakeDuration = 0.18f;   // seconds (unscaled)
+
+    Vector3 basePos;                          // smoothed position, without shake
+    float shakeTimer, shakeDuration, shakeStrength;
 
     [Header("Zoom (orthographic size = half the visible height, in world units / meters)")]
     public float minOrthographicSize = 6f;
@@ -19,7 +25,7 @@ public class DynamicCamera : MonoBehaviour
     [Header("Smoothing (seconds)")]
     public float positionSmoothTime = 0.12f;
     public float zoomOutSmoothTime = 0.15f;
-    public float zoomInSmoothTime = 0.45f;
+    public float zoomInSmoothTime = 0.45f;  
 
     Camera cam;
     Transform human, ghost;
@@ -74,9 +80,11 @@ public class DynamicCamera : MonoBehaviour
         C.orthographic = true;
         posVelocity = Vector3.zero;
         zoomVelocity = 0f;
-        ComputeTarget(out Vector2 mid, out float size);
+       ComputeTarget(out Vector2 mid, out float size);
         C.orthographicSize = size;
-        transform.position = new Vector3(mid.x, mid.y, -10f);
+        basePos = new Vector3(mid.x, mid.y, -10f);
+        transform.position = basePos;
+        shakeTimer = 0f;
     }
 
     void ComputeTarget(out Vector2 mid, out float size)
@@ -96,7 +104,31 @@ public class DynamicCamera : MonoBehaviour
 
         float smooth = targetSize > C.orthographicSize ? zoomOutSmoothTime : zoomInSmoothTime;
         C.orthographicSize = Mathf.SmoothDamp(C.orthographicSize, targetSize, ref zoomVelocity, smooth);
-        transform.position = Vector3.SmoothDamp(transform.position, new Vector3(mid.x, mid.y, -10f), ref posVelocity, positionSmoothTime);
+        basePos = Vector3.SmoothDamp(basePos, new Vector3(mid.x, mid.y, -10f), ref posVelocity, positionSmoothTime);
+
+        transform.position = basePos + ShakeOffset();
+    }
+
+    /// <summary>Triggers a short screen shake. Uses Inspector defaults if no values are passed.</summary>
+    public void Shake(float strength = -1f, float duration = -1f)
+    {
+        if (strength < 0f) strength = hitShakeStrength;
+        if (duration < 0f) duration = hitShakeDuration;
+
+        // Don't let a weak shake cut off a stronger one that's still playing
+        float remaining = shakeTimer > 0f ? shakeStrength * (shakeTimer / shakeDuration) : 0f;
+        shakeStrength = Mathf.Max(remaining, strength);
+        shakeDuration = Mathf.Max(0.01f, duration);
+        shakeTimer = shakeDuration;
+    }
+
+    Vector3 ShakeOffset()
+    {
+        if (shakeTimer <= 0f) return Vector3.zero;
+        shakeTimer -= Time.unscaledDeltaTime;   // unaffected by the 0.35 death slow-mo
+        float k = Mathf.Clamp01(shakeTimer / shakeDuration);
+        float amp = shakeStrength * k * k * ZoomScale;   // eases out; scales with zoom so it reads the same zoomed out
+        return (Vector3)(Random.insideUnitCircle * amp);
     }
 
     /// <summary>Mouse position -> world position, clamped inside the safe (buffered) part of the screen.</summary>

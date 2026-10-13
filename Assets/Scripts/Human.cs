@@ -179,6 +179,7 @@ public class Human : MonoBehaviour
         Health = Mathf.Max(0f, Health - amount);
         invulnUntil = Time.time + tune.humanHitInvulnerability;
         flashUntil = Time.time + 0.15f;
+        if (DynamicCamera.Instance != null) DynamicCamera.Instance.Shake();
         Fx.Popup(transform.position + Vector3.up * 0.8f, Mathf.CeilToInt(amount).ToString(), new Color(1f, 0.3f, 0.3f));
         Sfx.Play(SfxId.Hurt);
         if (Health <= 0f) Die();
