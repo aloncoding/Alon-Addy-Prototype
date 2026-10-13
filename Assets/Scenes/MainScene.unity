@@ -179,10 +179,10 @@ MonoBehaviour:
     baseEnemyHealth: 20
     baseEnemySpeed: 2.2
     baseEnemyDamage: 8
-    enemyAttackInterval: 2
+    enemyAttackInterval: 1
     xpDropChance: 0.9
     xpThreshold: 25
-    xpThresholdGrowthPerLevel: 0
+    xpThresholdGrowthPerLevel: 5
     restartDelayAfterDeath: 2
     showDamageNumbers: 1
   humanPrefab: {fileID: 8950737879516896397, guid: b307e8994d7737d4ca571875383c1eaf, type: 3}
