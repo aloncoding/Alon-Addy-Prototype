@@ -30,6 +30,8 @@ public class GameManager : MonoBehaviour
     [Tooltip("Leave empty to use Camera.main (or one is created).")]
     public Camera gameCamera;
     public bool confineCursorToWindow = true;
+    const string BestTimeKey = "BestTime";
+    public float BestTime { get; private set; }
 
     // ---------------- Run state ----------------
     public Human HumanPlayer { get; private set; }
@@ -56,6 +58,7 @@ public class GameManager : MonoBehaviour
         if (Instance != null && Instance != this) { Destroy(gameObject); return; }
         Instance = this;
         if (confineCursorToWindow) Cursor.lockState = CursorLockMode.Confined;
+        BestTime = PlayerPrefs.GetFloat(BestTimeKey, 0f);
         Build();
     }
 
@@ -193,8 +196,17 @@ public class GameManager : MonoBehaviour
     {
         if (GameOver) return;
         GameOver = true;
+
+        bool newBest = ElapsedTime > BestTime;
+        if (newBest)
+        {
+            BestTime = ElapsedTime;
+            PlayerPrefs.SetFloat(BestTimeKey, BestTime);
+            PlayerPrefs.Save();
+        }
+
         Time.timeScale = 0.35f;
-        if (HUD.Instance != null) HUD.Instance.ShowGameOver(ElapsedTime);
+        if (HUD.Instance != null) HUD.Instance.ShowGameOver(ElapsedTime, newBest);
         StartCoroutine(GameOverRoutine(runId));
     }
 

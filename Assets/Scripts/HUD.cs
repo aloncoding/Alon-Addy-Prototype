@@ -41,6 +41,7 @@ public class HUD : MonoBehaviour
 
     [SerializeField] Canvas canvas;
     [SerializeField] RectTransform canvasRect;
+    [SerializeField] Text bestText;
     [SerializeField] Text timerText, healthText, humanStatus, ghostStatus, gameOverText;
     [SerializeField] Image healthFill;
     [SerializeField] CooldownTile meleeTile, dashTile, scareTile, tauntTile;
@@ -58,6 +59,7 @@ public class HUD : MonoBehaviour
     {
         Instance = this;
         if (!built) { Build(); built = true; }
+        else if (bestText == null) BuildBestText(canvas.transform);
     }
 
     /// <summary>Used by the editor menu to bake the HUD hierarchy into an editable prefab.</summary>
@@ -83,7 +85,7 @@ public class HUD : MonoBehaviour
         healthFill.type = Image.Type.Filled;
         healthFill.fillMethod = Image.FillMethod.Horizontal;
         healthText = UIBuilder.Label(hpBg.transform, "HealthText", "", 20, white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 30f));
-
+        BuildBestText(c);
         // Power-up rows: first three on the left, last three on the right.
         for (int i = 0; i < UpgradeSystem.TypeCount; i++)
         {
@@ -167,6 +169,8 @@ public class HUD : MonoBehaviour
         timerText.text = $"{total / 60:00}:{total % 60:00}";
         healthFill.fillAmount = human.MaxHealth > 0f ? human.Health / human.MaxHealth : 0f;
         healthText.text = $"{Mathf.CeilToInt(human.Health)} / {Mathf.CeilToInt(human.MaxHealth)}";
+        bool beating = gm.BestTime > 0f && gm.ElapsedTime > gm.BestTime;
+        bestText.text = beating ? $"NEW BEST! {FormatTime(gm.ElapsedTime)}" : $"BEST {FormatTime(gm.BestTime)}";
 
         for (int i = 0; i < rows.Length; i++)
         {
@@ -256,11 +260,28 @@ public class HUD : MonoBehaviour
         }
     }
 
-    public void ShowGameOver(float survivedSeconds)
+    public void ShowGameOver(float survivedSeconds, bool newBest)
     {
-        int s = Mathf.FloorToInt(survivedSeconds);
-        gameOverText.text = $"YOU DIED\nSurvived {s / 60:00}:{s % 60:00}\n<size=32>Restarting...  (or press R)</size>";
+        var gm = GameManager.Instance;
+        string bestLine = newBest
+            ? "<color=#FFD94D>NEW BEST!</color>"
+            : $"Best {FormatTime(gm != null ? gm.BestTime : 0f)}";
+
+        gameOverText.text = $"YOU DIED\nSurvived {FormatTime(survivedSeconds)}\n<size=36>{bestLine}</size>\n<size=32>Restarting...  (or press R)</size>";
         gameOverText.supportRichText = true;
         gameOverText.gameObject.SetActive(true);
+    }
+    static string FormatTime(float seconds)
+    {
+        int s = Mathf.FloorToInt(seconds);
+        return $"{s / 60:00}:{s % 60:00}";
+    }
+
+    void BuildBestText(Transform c)
+    {
+        Vector2 topC = new Vector2(0.5f, 1f);
+        bestText = UIBuilder.Label(c, "BestTime", "", 24, new Color(1f, 0.85f, 0.3f), TextAnchor.UpperCenter,
+                                topC, topC, new Vector2(0f, -112f), new Vector2(400f, 40f));
+        UIBuilder.AddOutline(bestText);
     }
 }
