@@ -64,7 +64,7 @@ public class XpOrb : MonoBehaviour
         if (best <= CollectRange)
         {
             collected = true;
-            Sfx.Play(SfxId.Pickup, 0.6f, 0.03f);
+            Sfx.Play(SfxId.Pickup, 1f, 0.03f);
             Destroy(gameObject);
             gm.AddXp(value);
             return;

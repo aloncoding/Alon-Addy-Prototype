@@ -37,7 +37,7 @@ public static class Sfx
             case SfxId.Dash:       return ProceduralAssets.Tone("dash", 400, 1000, 0.12f, 0.3f, 0);
             case SfxId.Scare:      return ProceduralAssets.Tone("scare", 900, 120, 0.6f, 0.4f, 0);
             case SfxId.Taunt:      return ProceduralAssets.Tone("taunt", 150, 400, 0.45f, 0.45f, 1);
-            case SfxId.Pickup:     return ProceduralAssets.Tone("pickup", 800, 1400, 0.06f, 0.25f, 0);
+            case SfxId.Pickup:     return ProceduralAssets.Tone("pickup", 1760, 1760, 0.2f, 0.45f, 0);
             case SfxId.LevelUp:    return ProceduralAssets.Tone("levelup", 500, 1200, 0.4f, 0.4f, 0);
             case SfxId.Select:     return ProceduralAssets.Tone("select", 600, 900, 0.1f, 0.3f, 0);
             case SfxId.Charged:    return ProceduralAssets.Tone("charged", 1000, 1800, 0.18f, 0.4f, 0);
