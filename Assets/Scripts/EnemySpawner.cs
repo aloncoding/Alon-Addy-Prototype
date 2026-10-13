@@ -11,7 +11,7 @@ public class EnemySpawner : MonoBehaviour
         if (gm == null || gm.InputLocked || DynamicCamera.Instance == null) return;
         var t = gm.tuning;
 
-        float minutes = gm.ElapsedTime / 60f;
+        float minutes = DifficultyMinutes(gm.ElapsedTime / 60f, t);
         float rate = t.baseSpawnRate * (1f + 0.3f * minutes + 0.02f * minutes * minutes);
         accumulator += rate * Time.deltaTime;
 
@@ -22,6 +22,17 @@ public class EnemySpawner : MonoBehaviour
             if (Enemy.All.Count < t.maxEnemies) SpawnOne(minutes);
         }
         accumulator = Mathf.Min(accumulator, 2f);
+    }
+
+    /// <summary>
+    /// Maps real survival minutes onto the difficulty curve. Ramps linearly up to maxDifficultyMinutes,
+    /// then holds at maximum difficulty forever.
+    /// </summary>
+    static float DifficultyMinutes(float realMinutes, GameTuning t)
+    {
+        float maxReal = Mathf.Max(0.01f, t.maxDifficultyMinutes);
+        float progress = Mathf.Clamp01(realMinutes / maxReal);
+        return progress * t.curveMinutesAtMaxDifficulty;
     }
 
     void SpawnOne(float minutes)

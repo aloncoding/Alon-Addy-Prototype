@@ -27,7 +27,7 @@ public class Enemy : MonoBehaviour
     public bool IsSlowed => Time.time < slowUntil;
     public bool IsWeakened => Time.time < weakUntil;
 
-    float moveSpeed, damage, attackInterval, attackTimer;
+    float moveSpeed, damage, attackInterval, nextAttackTime;
     int xpValue;
     float frozenUntil, tauntUntil, slowUntil, weakUntil, flashUntil, knockUntil;
     Vector2 knockVel;
@@ -164,31 +164,23 @@ public class Enemy : MonoBehaviour
 
         float dist = Vector2.Distance(transform.position, target.position);
         float reach = transform.localScale.x * 0.5f + 0.4f + AttackRangePadding;
-        if (dist <= reach)
-        {
-            attackTimer += Time.deltaTime;
-            if (attackTimer >= attackInterval)
-            {
-                attackTimer = 0f;
-                Attack(target);
-            }
-        }
-        else
-        {
-            attackTimer = Mathf.Max(0f, attackTimer - Time.deltaTime);
-        }
+        // Attack the moment contact is made; the interval only gates the NEXT attack.
+        // If the hit was absorbed (human invulnerable), keep retrying until it lands.
+        if (dist <= reach && Time.time >= nextAttackTime && Attack(target))
+            nextAttackTime = Time.time + attackInterval;
     }
 
-    void Attack(Transform target)
+    /// <returns>true if the attack actually landed (or was a visual-only taunt attack).</returns>
+    bool Attack(Transform target)
     {
         var gm = GameManager.Instance;
         if (gm.GhostPlayer != null && target == gm.GhostPlayer.transform)
         {
             // Taunted attack on the immortal ghost: visual only, no damage.
             Fx.Ring(target.position, 0.2f, 0.9f, new Color(1f, 0.6f, 0.2f, 0.7f), 0.2f);
-            return;
+            return true;
         }
-        if (gm.HumanPlayer != null) gm.HumanPlayer.TakeDamage(damage * (IsWeakened ? WeakenFactor : 1f));
+        return gm.HumanPlayer != null && gm.HumanPlayer.TakeDamage(damage * (IsWeakened ? WeakenFactor : 1f));
     }
 
     void UpdateColor()

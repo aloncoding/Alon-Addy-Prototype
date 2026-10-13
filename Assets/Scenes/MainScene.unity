@@ -152,6 +152,7 @@ MonoBehaviour:
     humanMaxHealth: 100
     humanMoveSpeed: 5.5
     humanHitInvulnerability: 0.35
+    humanRegenPerSecond: 1
     gunDamage: 10
     gunFireInterval: 0.55
     meleeDamage: 18
@@ -169,10 +170,10 @@ MonoBehaviour:
     ghostWeakenDuration: 3
     scareRadius: 6
     scareDuration: 3
-    scareCooldown: 30
+    scareCooldown: 15
     tauntRadius: 8
     tauntDuration: 5
-    tauntCooldown: 45
+    tauntCooldown: 25
     maxEnemies: 350
     baseSpawnRate: 0.9
     spawnMargin: 2
@@ -181,9 +182,36 @@ MonoBehaviour:
     baseEnemyDamage: 8
     enemyAttackInterval: 1
     xpDropChance: 0.9
+    maxDifficultyMinutes: 5
+    curveMinutesAtMaxDifficulty: 10
+    pierceHitsAtLevel1: 3
+    pierceExtraHitsPerLevel: 1
+    healBasePercent: 0.2
+    healPercentPerLevel: 0.05
+    healBaseCooldown: 100
+    healCooldownReductionPerLevel: 10
+    healMinCooldown: 40
+    boostBaseBonus: 0.2
+    boostBonusPerLevel: 0.1
+    boostBaseDuration: 10
+    boostDurationPerLevel: 2
+    boostBaseCooldown: 100
+    boostCooldownReductionPerLevel: 10
+    boostMinCooldown: 40
+    chargeTime: 0.4
+    chargeBaseDamageMult: 3
+    chargeDamageMultPerLevel: 1
+    chargeBaseSizeMult: 1.6
+    chargeSizeMultPerLevel: 0.2
+    refundBaseChance: 0.1
+    refundChancePerLevel: 0.05
+    refundMaxChance: 0.75
+    secondaryBaseFraction: 0.5
+    secondaryFractionPerLevel: 0.1
+    secondaryMaxFraction: 1
     xpThreshold: 25
     xpThresholdGrowthPerLevel: 5
-    restartDelayAfterDeath: 2
+    restartDelayAfterDeath: 5
     showDamageNumbers: 1
   humanPrefab: {fileID: 8950737879516896397, guid: b307e8994d7737d4ca571875383c1eaf, type: 3}
   ghostPrefab: {fileID: 443718118006136670, guid: 88ac462c7a112ea4da8a624f65865c95, type: 3}

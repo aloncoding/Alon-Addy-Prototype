@@ -19,28 +19,33 @@ public class UpgradeSystem : MonoBehaviour
 {
     public static UpgradeSystem Instance { get; private set; }
     public const int TypeCount = 6;
-    public const float ChargeTime = 0.4f;
 
     public readonly int[] Levels = new int[TypeCount];
     readonly List<UpgradeType> bag = new List<UpgradeType>();
-    readonly AbilityCooldown healCd = new AbilityCooldown();
     readonly AbilityCooldown boostCd = new AbilityCooldown();
     float boostActiveUntil;
+    bool healStarted;
+    float healTimer;   // seconds until Burst Healing is allowed to fire again
 
     void Awake() { Instance = this; }
     void OnDestroy() { if (Instance == this) Instance = null; }
 
-    // ---------------- Per-level formulas (edit these to rebalance) ----------------
-    public static int PierceHitsAt(int lv) => lv <= 0 ? 1 : 2 + lv;                                   // L1 = 3 enemies
-    public static float HealPercentAt(int lv) => 0.20f + 0.05f * Mathf.Max(0, lv - 1);
-    public static float HealCooldownAt(int lv) => Mathf.Max(40f, 100f - 10f * Mathf.Max(0, lv - 1));
-    public static float BoostBonusAt(int lv) => 0.20f + 0.10f * Mathf.Max(0, lv - 1);
-    public static float BoostDurationAt(int lv) => 10f + 2f * Mathf.Max(0, lv - 1);
-    public static float BoostCooldownAt(int lv) => Mathf.Max(40f, 100f - 10f * Mathf.Max(0, lv - 1));
-    public static float ChargeDamageMultAt(int lv) => 3f + 1f * Mathf.Max(0, lv - 1);
-    public static float ChargeSizeMultAt(int lv) => 1.6f + 0.2f * Mathf.Max(0, lv - 1);
-    public static float RefundChanceAt(int lv) => lv <= 0 ? 0f : Mathf.Min(0.75f, 0.10f + 0.05f * (lv - 1));
-    public static float SecondaryFractionAt(int lv) => lv <= 0 ? 0f : Mathf.Min(1f, 0.5f + 0.1f * (lv - 1));
+    // ---------------- Per-level formulas (numbers come from GameManager > Tuning > Power-Ups) ----------------
+    static readonly GameTuning FallbackTuning = new GameTuning();
+    static GameTuning T => GameManager.Instance != null ? GameManager.Instance.tuning : FallbackTuning;
+    static int Steps(int lv) => Mathf.Max(0, lv - 1);
+
+    public static float ChargeTime => Mathf.Max(0.05f, T.chargeTime);
+    public static int PierceHitsAt(int lv) => lv <= 0 ? 1 : Mathf.Max(1, T.pierceHitsAtLevel1 + T.pierceExtraHitsPerLevel * Steps(lv));
+    public static float HealPercentAt(int lv) => Mathf.Clamp01(T.healBasePercent + T.healPercentPerLevel * Steps(lv));
+    public static float HealCooldownAt(int lv) => Mathf.Max(1f, Mathf.Max(T.healMinCooldown, T.healBaseCooldown - T.healCooldownReductionPerLevel * Steps(lv)));
+    public static float BoostBonusAt(int lv) => Mathf.Max(0f, T.boostBaseBonus + T.boostBonusPerLevel * Steps(lv));
+    public static float BoostDurationAt(int lv) => Mathf.Max(0.1f, T.boostBaseDuration + T.boostDurationPerLevel * Steps(lv));
+    public static float BoostCooldownAt(int lv) => Mathf.Max(1f, Mathf.Max(T.boostMinCooldown, T.boostBaseCooldown - T.boostCooldownReductionPerLevel * Steps(lv)));
+    public static float ChargeDamageMultAt(int lv) => Mathf.Max(0f, T.chargeBaseDamageMult + T.chargeDamageMultPerLevel * Steps(lv));
+    public static float ChargeSizeMultAt(int lv) => Mathf.Max(0.1f, T.chargeBaseSizeMult + T.chargeSizeMultPerLevel * Steps(lv));
+    public static float RefundChanceAt(int lv) => lv <= 0 ? 0f : Mathf.Clamp(T.refundBaseChance + T.refundChancePerLevel * Steps(lv), 0f, T.refundMaxChance);
+    public static float SecondaryFractionAt(int lv) => lv <= 0 ? 0f : Mathf.Clamp(T.secondaryBaseFraction + T.secondaryFractionPerLevel * Steps(lv), 0f, T.secondaryMaxFraction);
 
     // ---------------- Live values used by gameplay ----------------
     public int Level(UpgradeType t) => Levels[(int)t];
@@ -95,7 +100,7 @@ public class UpgradeSystem : MonoBehaviour
     {
         int i = (int)t;
         Levels[i]++;
-        if (t == UpgradeType.BurstHealing && Levels[i] == 1) healCd.ForceStart(HealCooldownAt(1));
+        Debug.Log($"[Upgrade] {t} is now level {Levels[i]}");
         Sfx.Play(SfxId.Select, 1f, 0f);
     }
 
@@ -109,11 +114,32 @@ public class UpgradeSystem : MonoBehaviour
         var gold = new Color(1f, 0.85f, 0.2f);
 
         int hl = Levels[(int)UpgradeType.BurstHealing];
-        if (hl > 0 && healCd.IsReady)
+        if (hl > 0)
         {
-            human.Heal(human.MaxHealth * HealPercentAt(hl));
-            bool freeHeal = healCd.Start(HealCooldownAt(hl), 1f);
-            if (freeHeal) Fx.Popup(human.transform.position + Vector3.up * 1.3f, "FREE!", gold);
+            // Step 1: first frame after acquiring -> start a full countdown. Nothing fires on pickup.
+            if (!healStarted)
+            {
+                healStarted = true;
+                healTimer = HealCooldownAt(hl);
+                Debug.Log($"[BurstHealing] acquired; first heal possible in {healTimer:0}s (and only if HP is missing)");
+            }
+
+            // Step 2: count down (scaled time, so it freezes while paused).
+            if (healTimer > 0f) healTimer -= Time.deltaTime;
+
+            // Step 3: when the countdown is done, wait until the human is actually hurt, then heal.
+            bool needsHeal = human.Health < human.MaxHealth - 0.01f;
+            if (healTimer <= 0f && needsHeal)
+            {
+                float before = human.Health;
+                human.Heal(human.MaxHealth * HealPercentAt(hl));
+                Debug.Log($"[BurstHealing] healed {human.Health - before:0.#} HP ({before:0.#} -> {human.Health:0.#} / {human.MaxHealth:0.#})");
+
+                // Step 4: restart the countdown; Cooldown Refund may skip it (small re-trigger delay so it can't spam).
+                bool freeHeal = RollRefund();
+                healTimer = freeHeal ? 1f : HealCooldownAt(hl);
+                if (freeHeal) Fx.Popup(human.transform.position + Vector3.up * 1.3f, "FREE!", gold);
+            }
         }
 
         int bl = Levels[(int)UpgradeType.AttackBoost];
@@ -149,7 +175,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.PiercingAttacks: return "Projectiles from both players pass through multiple enemies.";
             case UpgradeType.BurstHealing: return "Automatically restores human health on a long timer.";
             case UpgradeType.AttackBoost: return "Periodically boosts attack power for both players.";
-            case UpgradeType.ChargedAttack: return "Hold Space (human) or Left Click (ghost) for 0.4s, release to fire a powerful shot.";
+            case UpgradeType.ChargedAttack: return $"Hold Space (human) or Left Click (ghost) for {ChargeTime:0.##}s, release to fire a powerful shot.";
             case UpgradeType.CooldownRefund: return "Abilities and power-ups sometimes don't go on cooldown when used.";
             default: return "A weaker projectile fires in the opposite direction of your main shot.";
         }
@@ -188,7 +214,8 @@ public class UpgradeSystem : MonoBehaviour
         {
             case UpgradeType.PiercingAttacks: return $"Pierce {PierceHitsAt(lv)} enemies";
             case UpgradeType.BurstHealing:
-                return healCd.IsReady ? "Ready" : $"{Mathf.CeilToInt(healCd.Remaining)}s";
+                if (!healStarted || healTimer > 0f) return $"{Mathf.CeilToInt(healStarted ? healTimer : HealCooldownAt(lv))}s";
+                return "Ready (waits for damage)";
             case UpgradeType.AttackBoost:
                 if (BoostActive) return $"ACTIVE {Mathf.CeilToInt(BoostTimeLeft)}s";
                 return boostCd.IsReady ? "Ready" : $"{Mathf.CeilToInt(boostCd.Remaining)}s";

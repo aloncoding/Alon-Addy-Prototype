@@ -68,6 +68,10 @@ public class Human : MonoBehaviour
         var gm = GameManager.Instance;
         if (gm.InputLocked) { moveInput = Vector2.zero; CancelCharge(); return; }
 
+        // Passive regeneration.
+        if (Health < MaxHealth && tune.humanRegenPerSecond > 0f)
+            Health = Mathf.Min(MaxHealth, Health + tune.humanRegenPerSecond * Time.deltaTime);
+
         var kb = Keyboard.current;
         if (kb == null) return;
 
@@ -168,15 +172,17 @@ public class Human : MonoBehaviour
     }
 
     // ---------------- Health ----------------
-    public void TakeDamage(float amount)
+    /// <returns>true if the damage was applied (false if dead or currently invulnerable).</returns>
+    public bool TakeDamage(float amount)
     {
-        if (IsDead || Time.time < invulnUntil) return;
+        if (IsDead || Time.time < invulnUntil) return false;
         Health = Mathf.Max(0f, Health - amount);
         invulnUntil = Time.time + tune.humanHitInvulnerability;
         flashUntil = Time.time + 0.15f;
         Fx.Popup(transform.position + Vector3.up * 0.8f, Mathf.CeilToInt(amount).ToString(), new Color(1f, 0.3f, 0.3f));
         Sfx.Play(SfxId.Hurt);
         if (Health <= 0f) Die();
+        return true;
     }
 
     public void Heal(float amount)
