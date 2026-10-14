@@ -3,13 +3,13 @@ using UnityEngine;
 /// <summary>Trigger projectile used by both players. Ghost projectiles apply slow + weaken.</summary>
 public class Projectile : MonoBehaviour
 {
-    float damage, life, knockback;
+    float damage, life, knockbackDistance;
     int hitsLeft;
     bool debuff;
     Vector2 direction;
 
     public static Projectile Spawn(Vector2 pos, Vector2 dir, float damage, float speed, float size,
-                                   int hits, bool debuff, Color color, float knockback, float life = 2f)
+                                   int hits, bool debuff, Color color, float knockbackDistance, float life = 2f)
     {
         var gm = GameManager.Instance;
         var go = GameManager.Create(gm != null ? gm.projectilePrefab : null, debuff ? "GhostShot" : "Bullet");
@@ -38,7 +38,7 @@ public class Projectile : MonoBehaviour
         p.damage = damage;
         p.hitsLeft = Mathf.Max(1, hits);
         p.debuff = debuff;
-        p.knockback = knockback;
+        p.knockbackDistance = knockbackDistance;
         p.life = life;
         p.direction = dir;
         return p;
@@ -61,7 +61,8 @@ public class Projectile : MonoBehaviour
             var t = GameManager.Instance.tuning;
             e.ApplyDebuff(t.ghostSlowDuration, t.ghostWeakenDuration);
         }
-        e.TakeDamage(damage, direction * knockback);
+        e.TakeDamage(damage);
+        e.Knockback(direction, knockbackDistance);
         hitsLeft--;
         if (hitsLeft <= 0) Destroy(gameObject);
     }

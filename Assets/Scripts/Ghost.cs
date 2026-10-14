@@ -41,7 +41,7 @@ public class Ghost : MonoBehaviour
         shooter.applyDebuff = true;
         shooter.color = new Color(0.7f, 0.5f, 1f);
         shooter.sound = SfxId.GhostShoot;
-        shooter.knockback = 0.5f;
+        shooter.knockback = 0.05f;
         chargeVisual = new ChargeVisual(transform, new Color(0.7f, 0.5f, 1f));
     }
 

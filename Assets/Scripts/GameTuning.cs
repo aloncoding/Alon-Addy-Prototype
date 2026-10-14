@@ -37,6 +37,8 @@ public class GameTuning
     public float tauntRadius = 8f;
     public float tauntDuration = 5f;
     public float tauntCooldown = 45f;
+    [Tooltip("Frozen/taunted enemies shake during the last N seconds of the effect to show it's wearing off.")]
+    public float debuffWarningTime = 0.8f;
 
     [Header("Enemies")]
     public int maxEnemies = 350;
@@ -52,6 +54,24 @@ public class GameTuning
     [Tooltip("How far along the difficulty curve the game is when it hits max difficulty (in curve-minutes). " +
              "15 = reaches what used to be the 15-minute intensity at 5 minutes. Set equal to Max Difficulty Minutes to simply cap the old curve.")]
     public float curveMinutesAtMaxDifficulty = 15f;
+
+    [Header("Enemy Size & Colour by Health")]
+    [Tooltip("Enemy scale at base health. Size = this x (health / base health) ^ exponent, clamped to min/max.")]
+    public float enemySizeAtBaseHealth = 1f;
+    [Tooltip("Higher = size reacts more strongly to health. 0.5 was the old gentle curve.")]
+    public float enemySizeExponent = 0.75f;
+    public float enemyMinSize = 0.4f;
+    public float enemyMaxSize = 3f;
+    [Tooltip("Hue of enemies (0-1). 0.99 = crimson.")]
+    [Range(0f, 1f)] public float enemyHue = 0.99f;
+    [Tooltip("Saturation of the lowest-health enemies (pale) ...")]
+    [Range(0f, 1f)] public float enemyMinSaturation = 0.12f;
+    [Tooltip("... and of the highest-health enemies (vivid).")]
+    [Range(0f, 1f)] public float enemyMaxSaturation = 1f;
+    [Tooltip("Health ratio (health / base health) that maps to minimum saturation.")]
+    public float enemyHealthRatioForMinSaturation = 0.5f;
+    [Tooltip("Health ratio that maps to maximum saturation.")]
+    public float enemyHealthRatioForMaxSaturation = 6f;
 
     // ======================= POWER-UPS =======================
     // Level N value = base + perLevel x (N - 1). "Min/Max" values clamp the result.
@@ -82,15 +102,10 @@ public class GameTuning
     public float boostCooldownReductionPerLevel = 10f;
     public float boostMinCooldown = 40f;
 
-    [Header("Power-Up: Charged Attack")]
-    [Tooltip("Seconds the attack input must be held before the shot is charged.")]
-    public float chargeTime = 0.4f;
-    [Tooltip("Damage multiplier of the charged shot at level 1.")]
-    public float chargeBaseDamageMult = 3f;
-    public float chargeDamageMultPerLevel = 1f;
-    [Tooltip("Projectile size multiplier of the charged shot at level 1.")]
-    public float chargeBaseSizeMult = 1.6f;
-    public float chargeSizeMultPerLevel = 0.2f;
+    [Header("Power-Up: Knockback")]
+    [Tooltip("Distance (world units) every auto-attack hit pushes an enemy back at level 1.")]
+    public float knockbackBaseDistance = 1f;
+    public float knockbackDistancePerLevel = 0.5f;
 
     [Header("Power-Up: Cooldown Refund")]
     [Tooltip("Chance (0-1) that an ability/power-up skips its cooldown at level 1.")]

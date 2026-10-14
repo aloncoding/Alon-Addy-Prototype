@@ -6,7 +6,7 @@ public enum UpgradeType
     PiercingAttacks = 0,
     BurstHealing = 1,
     AttackBoost = 2,
-    ChargedAttack = 3,
+    KnockbackAttack = 3,
     CooldownRefund = 4,
     SecondaryAttack = 5
 }
@@ -35,24 +35,25 @@ public class UpgradeSystem : MonoBehaviour
     static GameTuning T => GameManager.Instance != null ? GameManager.Instance.tuning : FallbackTuning;
     static int Steps(int lv) => Mathf.Max(0, lv - 1);
 
-    public static float ChargeTime => Mathf.Max(0.05f, T.chargeTime);
+    /// <summary>Legacy stub (the Charged Attack power-up was replaced by Knockback). Kept so older Human/HUD code still compiles.</summary>
+    public static float ChargeTime => 0.4f;
     public static int PierceHitsAt(int lv) => lv <= 0 ? 1 : Mathf.Max(1, T.pierceHitsAtLevel1 + T.pierceExtraHitsPerLevel * Steps(lv));
     public static float HealPercentAt(int lv) => Mathf.Clamp01(T.healBasePercent + T.healPercentPerLevel * Steps(lv));
     public static float HealCooldownAt(int lv) => Mathf.Max(1f, Mathf.Max(T.healMinCooldown, T.healBaseCooldown - T.healCooldownReductionPerLevel * Steps(lv)));
     public static float BoostBonusAt(int lv) => Mathf.Max(0f, T.boostBaseBonus + T.boostBonusPerLevel * Steps(lv));
     public static float BoostDurationAt(int lv) => Mathf.Max(0.1f, T.boostBaseDuration + T.boostDurationPerLevel * Steps(lv));
     public static float BoostCooldownAt(int lv) => Mathf.Max(1f, Mathf.Max(T.boostMinCooldown, T.boostBaseCooldown - T.boostCooldownReductionPerLevel * Steps(lv)));
-    public static float ChargeDamageMultAt(int lv) => Mathf.Max(0f, T.chargeBaseDamageMult + T.chargeDamageMultPerLevel * Steps(lv));
-    public static float ChargeSizeMultAt(int lv) => Mathf.Max(0.1f, T.chargeBaseSizeMult + T.chargeSizeMultPerLevel * Steps(lv));
+    public static float KnockbackDistanceAt(int lv) => lv <= 0 ? 0f : Mathf.Max(0f, T.knockbackBaseDistance + T.knockbackDistancePerLevel * Steps(lv));
     public static float RefundChanceAt(int lv) => lv <= 0 ? 0f : Mathf.Clamp(T.refundBaseChance + T.refundChancePerLevel * Steps(lv), 0f, T.refundMaxChance);
     public static float SecondaryFractionAt(int lv) => lv <= 0 ? 0f : Mathf.Clamp(T.secondaryBaseFraction + T.secondaryFractionPerLevel * Steps(lv), 0f, T.secondaryMaxFraction);
 
     // ---------------- Live values used by gameplay ----------------
     public int Level(UpgradeType t) => Levels[(int)t];
     public int PierceHits => PierceHitsAt(Level(UpgradeType.PiercingAttacks));
-    public bool ChargedUnlocked => Level(UpgradeType.ChargedAttack) > 0;
-    public float ChargeDamageMult => ChargeDamageMultAt(Level(UpgradeType.ChargedAttack));
-    public float ChargeSizeMult => ChargeSizeMultAt(Level(UpgradeType.ChargedAttack));
+    /// <summary>Legacy stub, always false (charge mechanic removed).</summary>
+    public bool ChargedUnlocked => false;
+    /// <summary>Distance auto-attack hits knock enemies back (0 until the power-up is taken).</summary>
+    public float KnockbackDistance => KnockbackDistanceAt(Level(UpgradeType.KnockbackAttack));
     public float RefundChance => RefundChanceAt(Level(UpgradeType.CooldownRefund));
     public bool SecondaryUnlocked => Level(UpgradeType.SecondaryAttack) > 0;
     public float SecondaryFraction => SecondaryFractionAt(Level(UpgradeType.SecondaryAttack));
@@ -135,6 +136,8 @@ public class UpgradeSystem : MonoBehaviour
                 human.Heal(human.MaxHealth * HealPercentAt(hl));
                 Debug.Log($"[BurstHealing] healed {human.Health - before:0.#} HP ({before:0.#} -> {human.Health:0.#} / {human.MaxHealth:0.#})");
 
+                Fx.HealPulse(human.transform);   // green healing pulse centred on the human
+
                 // Step 4: restart the countdown; Cooldown Refund may skip it (small re-trigger delay so it can't spam).
                 bool freeHeal = RollRefund();
                 healTimer = freeHeal ? 1f : HealCooldownAt(hl);
@@ -162,7 +165,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.PiercingAttacks: return "Piercing Attacks";
             case UpgradeType.BurstHealing: return "Burst Healing";
             case UpgradeType.AttackBoost: return "Attack Boost";
-            case UpgradeType.ChargedAttack: return "Charged Attack";
+            case UpgradeType.KnockbackAttack: return "Knockback";
             case UpgradeType.CooldownRefund: return "Cooldown Refund";
             default: return "Secondary Auto-Attack";
         }
@@ -175,7 +178,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.PiercingAttacks: return "Projectiles from both players pass through multiple enemies.";
             case UpgradeType.BurstHealing: return "Automatically restores human health on a long timer.";
             case UpgradeType.AttackBoost: return "Periodically boosts attack power for both players.";
-            case UpgradeType.ChargedAttack: return $"Hold Space (human) or Left Click (ghost) for {ChargeTime:0.##}s, release to fire a powerful shot.";
+            case UpgradeType.KnockbackAttack: return "Every auto attack shoves enemies back, buying breathing room.";
             case UpgradeType.CooldownRefund: return "Abilities and power-ups sometimes don't go on cooldown when used.";
             default: return "A weaker projectile fires in the opposite direction of your main shot.";
         }
@@ -188,7 +191,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.PiercingAttacks: return $"Pierce up to {PierceHitsAt(lv)} enemies";
             case UpgradeType.BurstHealing: return $"Heal {HealPercentAt(lv) * 100f:0}% max HP every {HealCooldownAt(lv):0}s";
             case UpgradeType.AttackBoost: return $"+{BoostBonusAt(lv) * 100f:0}% attack for {BoostDurationAt(lv):0}s every {BoostCooldownAt(lv):0}s";
-            case UpgradeType.ChargedAttack: return $"Charged shot: {ChargeDamageMultAt(lv):0.#}x damage, {ChargeSizeMultAt(lv):0.#}x size";
+            case UpgradeType.KnockbackAttack: return $"Auto attacks knock enemies back {KnockbackDistanceAt(lv):0.#} units";
             case UpgradeType.CooldownRefund: return $"{RefundChanceAt(lv) * 100f:0}% chance to skip a cooldown";
             default: return $"Rear shot at {SecondaryFractionAt(lv) * 100f:0}% damage";
         }
@@ -201,7 +204,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.PiercingAttacks: return new Color(0.4f, 0.8f, 1f);
             case UpgradeType.BurstHealing: return new Color(0.4f, 1f, 0.5f);
             case UpgradeType.AttackBoost: return new Color(1f, 0.6f, 0.2f);
-            case UpgradeType.ChargedAttack: return new Color(1f, 0.9f, 0.3f);
+            case UpgradeType.KnockbackAttack: return new Color(0.95f, 0.75f, 0.35f);
             case UpgradeType.CooldownRefund: return new Color(0.8f, 0.5f, 1f);
             default: return new Color(1f, 0.4f, 0.6f);
         }
@@ -219,7 +222,7 @@ public class UpgradeSystem : MonoBehaviour
             case UpgradeType.AttackBoost:
                 if (BoostActive) return $"ACTIVE {Mathf.CeilToInt(BoostTimeLeft)}s";
                 return boostCd.IsReady ? "Ready" : $"{Mathf.CeilToInt(boostCd.Remaining)}s";
-            case UpgradeType.ChargedAttack: return $"{ChargeDamageMultAt(lv):0.#}x damage";
+            case UpgradeType.KnockbackAttack: return $"{KnockbackDistanceAt(lv):0.#} units";
             case UpgradeType.CooldownRefund: return $"{RefundChanceAt(lv) * 100f:0}% chance";
             default: return $"{SecondaryFractionAt(lv) * 100f:0}% damage";
         }

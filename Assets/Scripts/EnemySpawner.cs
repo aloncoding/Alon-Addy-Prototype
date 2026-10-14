@@ -78,10 +78,17 @@ public class EnemySpawner : MonoBehaviour
         float damage = t.baseEnemyDamage * damageMult * (1f + Random.Range(-variance * 0.5f, variance * 0.5f));
 
         float ratio = health / t.baseEnemyHealth;
-        float size = Mathf.Clamp(0.5f + 0.6f * Mathf.Sqrt(ratio), 0.6f, 2.2f);   // bigger = tankier
+        float size = Mathf.Clamp(t.enemySizeAtBaseHealth * Mathf.Pow(Mathf.Max(0.01f, ratio), t.enemySizeExponent),
+                                 t.enemyMinSize, t.enemyMaxSize);   // bigger = tankier
         float score = (ratio + speed / t.baseEnemySpeed + damage / t.baseEnemyDamage) / 3f;
         int xp = Mathf.Max(1, Mathf.RoundToInt(score * Random.Range(0.6f, 1.8f))); // higher stats => more XP on average
-        Color color = Color.Lerp(new Color(1f, 0.55f, 0.5f), new Color(0.65f, 0.1f, 0.2f), Mathf.InverseLerp(0.6f, 2.2f, size));
+        // Higher health => more saturated (and slightly darker) hue; low health => pale.
+        float lo = Mathf.Log(Mathf.Max(0.01f, t.enemyHealthRatioForMinSaturation));
+        float hi = Mathf.Log(Mathf.Max(0.02f, t.enemyHealthRatioForMaxSaturation));
+        float hpT = Mathf.Clamp01(Mathf.InverseLerp(lo, hi, Mathf.Log(Mathf.Max(0.01f, ratio))));
+        Color color = Color.HSVToRGB(t.enemyHue,
+                                     Mathf.Lerp(t.enemyMinSaturation, t.enemyMaxSaturation, hpT),
+                                     Mathf.Lerp(0.95f, 0.8f, hpT));
 
         return new Enemy.Stats { health = health, speed = speed, damage = damage, size = size, xp = xp, color = color };
     }
