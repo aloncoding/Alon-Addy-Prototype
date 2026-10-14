@@ -38,6 +38,11 @@ public class HUD : MonoBehaviour
         public Color color;
         public float age, life;
     }
+    [SerializeField] RectTransform powerStrip;
+    const float StripWidth = 1800f;   // total width the power-ups spread across
+    const float MaxRowWidth = 380f;   // a single power-up never gets wider than this
+    const float RowHeight = 64f;
+    const float RowGap = 16f;
 
     [SerializeField] Canvas canvas;
     [SerializeField] RectTransform canvasRect;
@@ -55,11 +60,17 @@ public class HUD : MonoBehaviour
     [SerializeField] Transform xpBarRoot, xpFill;
     const float XpBarWidth = 1.6f;
 
-    void Awake()
+   void Awake()
     {
         Instance = this;
-        if (!built) { Build(); built = true; }
-        else if (bestText == null) BuildBestText(canvas.transform);
+
+        // Always rebuild from code so layout changes in Build() show up,
+        // even if this HUD came from an old baked prefab.
+        for (int i = transform.childCount - 1; i >= 0; i--)
+            Destroy(transform.GetChild(i).gameObject);
+
+        Build();
+        built = true;
     }
 
     /// <summary>Used by the editor menu to bake the HUD hierarchy into an editable prefab.</summary>
@@ -80,32 +91,48 @@ public class HUD : MonoBehaviour
         timerText = UIBuilder.Label(c, "Timer", "00:00", 46, white, TextAnchor.UpperCenter, topC, topC, new Vector2(0f, -12f), new Vector2(300f, 60f));
         UIBuilder.AddOutline(timerText);
 
-        var hpBg = UIBuilder.Img(c, "HealthBg", topC, topC, new Vector2(0f, -76f), new Vector2(420f, 30f), new Color(0f, 0f, 0f, 0.6f));
-        healthFill = UIBuilder.Img(hpBg.transform, "HealthFill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(3f, 0f), new Vector2(414f, 24f), new Color(0.9f, 0.25f, 0.3f));
-        healthFill.type = Image.Type.Filled;
-        healthFill.fillMethod = Image.FillMethod.Horizontal;
-        healthText = UIBuilder.Label(hpBg.transform, "HealthText", "", 20, white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(420f, 30f));
         BuildBestText(c);
-        // Power-up rows: first three on the left, last three on the right.
+
+        powerStrip = UIBuilder.Rect(c, "PowerStrip", topC, topC, new Vector2(0f, -112f), new Vector2(StripWidth, RowHeight));
+
         for (int i = 0; i < UpgradeSystem.TypeCount; i++)
         {
             var type = (UpgradeType)i;
-            bool right = i >= 3;
-            int slot = i % 3;
-            float ax = right ? 1f : 0f;
-            Vector2 anchor = new Vector2(ax, 1f);
-            var rt = UIBuilder.Rect(c, "Row_" + type, anchor, anchor, new Vector2(right ? -24f : 24f, -140f - slot * 84f), new Vector2(360f, 72f));
+            Vector2 leftMid = new Vector2(0f, 0.5f);
+
+            // Row background (position/width are set every frame in Update)
+            var bgImg = UIBuilder.Img(powerStrip, "Row_" + type, leftMid, new Vector2(0.5f, 0.5f), Vector2.zero,
+                                    new Vector2(MaxRowWidth, RowHeight), new Color(0f, 0f, 0f, 0.45f));
+            var rt = bgImg.rectTransform;
             var row = new PowerRow { root = rt.gameObject };
-            Vector2 mid = new Vector2(ax, 0.5f);
-            row.icon = UIBuilder.Img(rt, "Icon", mid, mid, Vector2.zero, new Vector2(56f, 56f), UpgradeSystem.ColorOf(type));
-            row.label = UIBuilder.Label(rt, "Label", "", 22, white, right ? TextAnchor.MiddleRight : TextAnchor.MiddleLeft,
-                                        mid, mid, new Vector2(right ? -68f : 68f, 0f), new Vector2(290f, 64f));
+
+            row.icon = UIBuilder.Img(rt, "Icon", leftMid, leftMid, new Vector2(8f, 0f), new Vector2(44f, 44f), UpgradeSystem.ColorOf(type));
+
+            row.label = UIBuilder.Label(rt, "Label", "", 20, white, TextAnchor.MiddleLeft, leftMid, leftMid, Vector2.zero, Vector2.zero);
+            var lrt = row.label.rectTransform;          // stretch label to fill the rest of the row
+            lrt.anchorMin = Vector2.zero;
+            lrt.anchorMax = Vector2.one;
+            lrt.offsetMin = new Vector2(60f, 2f);
+            lrt.offsetMax = new Vector2(-6f, -2f);
+            row.label.verticalOverflow = VerticalWrapMode.Truncate;
+            row.label.resizeTextForBestFit = true;      // shrinks text when 6 power-ups are crammed in
+            row.label.resizeTextMinSize = 12;
+            row.label.resizeTextMaxSize = 20;
             UIBuilder.AddOutline(row.label);
+
             row.root.SetActive(false);
             rows[i] = row;
         }
 
-        // Bottom-left: human
+        // ---- Bottom center: health bar ----
+        Vector2 botC = new Vector2(0.5f, 0f);
+        var hpBg = UIBuilder.Img(c, "HealthBg", botC, botC, new Vector2(0f, 28f), new Vector2(520f, 34f), new Color(0f, 0f, 0f, 0.6f));
+        healthFill = UIBuilder.Img(hpBg.transform, "HealthFill", new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(3f, 0f), new Vector2(514f, 28f), new Color(0.9f, 0.25f, 0.3f));
+        healthFill.type = Image.Type.Filled;
+        healthFill.fillMethod = Image.FillMethod.Horizontal;
+        healthText = UIBuilder.Label(hpBg.transform, "HealthText", "", 20, white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 34f));
+         
+                // Bottom-left: human
         Vector2 bl = new Vector2(0f, 0f);
         humanStatus = UIBuilder.Label(c, "HumanStatus", "", 22, white, TextAnchor.LowerLeft, bl, bl, new Vector2(24f, 118f), new Vector2(520f, 60f));
         UIBuilder.AddOutline(humanStatus);
@@ -172,15 +199,27 @@ public class HUD : MonoBehaviour
         bool beating = gm.BestTime > 0f && gm.ElapsedTime > gm.BestTime;
         bestText.text = beating ? $"NEW BEST! {FormatTime(gm.ElapsedTime)}" : $"BEST {FormatTime(gm.BestTime)}";
 
+        int active = 0;
+        for (int i = 0; i < rows.Length; i++) if (up.Levels[i] > 0) active++;
+
+        float slot = active > 0 ? StripWidth / active : 0f;
+        float width = Mathf.Min(MaxRowWidth, slot - RowGap);
+        int k = 0;
+
         for (int i = 0; i < rows.Length; i++)
         {
             int lv = up.Levels[i];
-            rows[i].root.SetActive(lv > 0);
-            if (lv > 0)
-            {
-                var t = (UpgradeType)i;
-                rows[i].label.text = $"{UpgradeSystem.NameOf(t)}  Lv {lv}\n{up.StatusText(t)}";
-            }
+            bool on = lv > 0;
+            rows[i].root.SetActive(on);
+            if (!on) continue;
+
+            var rt = (RectTransform)rows[i].root.transform;
+            rt.anchoredPosition = new Vector2(slot * (k + 0.5f), 0f);  // centered in its slot
+            rt.sizeDelta = new Vector2(width, RowHeight);
+            k++;
+
+            var t = (UpgradeType)i;
+            rows[i].label.text = $"{UpgradeSystem.NameOf(t)}  Lv {lv}\n{up.StatusText(t)}";
         }
 
         meleeTile.Set(human.Melee.Fraction, human.Melee.Remaining);
@@ -281,7 +320,7 @@ public class HUD : MonoBehaviour
     {
         Vector2 topC = new Vector2(0.5f, 1f);
         bestText = UIBuilder.Label(c, "BestTime", "", 24, new Color(1f, 0.85f, 0.3f), TextAnchor.UpperCenter,
-                                topC, topC, new Vector2(0f, -112f), new Vector2(400f, 40f));
+                                topC, topC, new Vector2(0f, -68f), new Vector2(400f, 40f));
         UIBuilder.AddOutline(bestText);
     }
 }
