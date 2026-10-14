@@ -29,6 +29,8 @@ public class Human : MonoBehaviour
     float dashEnd, invulnUntil, flashUntil;
     bool charging;
     float chargeTimer;
+    [SerializeField] bool artFacesLeft = true;   // your blob's eyes look left in the drawing
+    bool faceLeft;
 
     void Awake()
     {
@@ -63,6 +65,14 @@ public class Human : MonoBehaviour
 
     void Update()
     {
+        void UpdateFacing()
+        {
+            // Only change direction on left/right input; W/S alone keeps the last direction.
+            if (moveInput.x < -0.01f) faceLeft = true;
+            else if (moveInput.x > 0.01f) faceLeft = false;
+
+            sr.flipX = faceLeft != artFacesLeft;
+        }
         UpdateColor();
         if (IsDead) return;
         var gm = GameManager.Instance;
@@ -80,6 +90,7 @@ public class Human : MonoBehaviour
         moveInput = Vector2.ClampMagnitude(new Vector2(x, y), 1f);
         if (moveInput.sqrMagnitude > 0.01f) facing = moveInput.normalized;
         shooter.fallbackDirection = facing;
+        UpdateFacing();  
 
         if (kb.leftShiftKey.wasPressedThisFrame || kb.rightShiftKey.wasPressedThisFrame) TryDash();
 
