@@ -25,6 +25,8 @@ public class GameManager : MonoBehaviour
     public GameObject backgroundPrefab;
     public GameObject hudPrefab;
     public GameObject upgradeSelectionPrefab;
+    [Tooltip("Human height relative to the ghost. 1 = same height.")]
+    public float humanSizeRelativeToGhost = 1f;
 
     [Header("Optional")]
     [Tooltip("Leave empty to use Camera.main (or one is created).")]
@@ -105,6 +107,7 @@ public class GameManager : MonoBehaviour
         var gGo = Create(ghostPrefab, "Ghost");
         gGo.transform.position = new Vector3(2f, 1f, 0f);
         GhostPlayer = gGo.GetOrAdd<Ghost>();
+        MatchHeight(hGo, gGo, humanSizeRelativeToGhost);
 
         var cam = SetupCamera();
         cam.Init(HumanPlayer.transform, GhostPlayer.transform);
@@ -118,6 +121,16 @@ public class GameManager : MonoBehaviour
 
         Create(hudPrefab, "HUD").GetOrAdd<HUD>();
         selectionUI = Create(upgradeSelectionPrefab, "UpgradeSelection").GetOrAdd<UpgradeSelectionUI>();
+    }
+    static void MatchHeight(GameObject target, GameObject reference, float multiplier)
+    {
+        var tsr = target.GetComponent<SpriteRenderer>();
+        var rsr = reference.GetComponent<SpriteRenderer>();
+        if (tsr == null || rsr == null || tsr.sprite == null) return;
+
+        float want = rsr.bounds.size.y * multiplier;   // ghost's on-screen height
+        float have = tsr.sprite.bounds.size.y;          // human sprite's unscaled height
+        target.transform.localScale = Vector3.one * (want / have);
     }
 
     DynamicCamera SetupCamera()
