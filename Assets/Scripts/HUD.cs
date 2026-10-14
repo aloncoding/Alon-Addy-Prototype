@@ -132,19 +132,21 @@ public class HUD : MonoBehaviour
         healthFill.fillMethod = Image.FillMethod.Horizontal;
         healthText = UIBuilder.Label(hpBg.transform, "HealthText", "", 20, white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(520f, 34f));
          
-                // Bottom-left: human
-        Vector2 bl = new Vector2(0f, 0f);
-        humanStatus = UIBuilder.Label(c, "HumanStatus", "", 22, white, TextAnchor.LowerLeft, bl, bl, new Vector2(24f, 118f), new Vector2(520f, 60f));
-        UIBuilder.AddOutline(humanStatus);
-        meleeTile = MakeTile(c, "Melee", "MELEE\n[Space]", new Color(0.9f, 0.5f, 0.3f), bl, new Vector2(24f, 24f));
-        dashTile = MakeTile(c, "Dash", "DASH\n[Shift]", new Color(0.4f, 0.8f, 1f), bl, new Vector2(120f, 24f));
+        const float BigTile = 220f, SmallTile = 130f, Margin = 20f;
 
-        // Bottom-right: ghost
+        // Bottom-left: human (big Melee in the corner, small Dash beside it)
+        Vector2 bl = new Vector2(0f, 0f);
+        meleeTile = MakeTile(c, "Melee", "MELEE\n[Space]", new Color(0.9f, 0.5f, 0.3f), bl, new Vector2(Margin, Margin), BigTile);
+        dashTile  = MakeTile(c, "Dash",  "DASH\n[Shift]",  new Color(0.4f, 0.8f, 1f),  bl, new Vector2(Margin + BigTile, Margin), SmallTile);
+        humanStatus = UIBuilder.Label(c, "HumanStatus", "", 22, white, TextAnchor.LowerLeft, bl, bl, new Vector2(24f, Margin + BigTile + 20f), new Vector2(520f, 60f));
+        UIBuilder.AddOutline(humanStatus);
+
+        // Bottom-right: ghost (big Taunt in the corner, small Scare beside it)
         Vector2 br = new Vector2(1f, 0f);
-        ghostStatus = UIBuilder.Label(c, "GhostStatus", "", 22, white, TextAnchor.LowerRight, br, br, new Vector2(-24f, 118f), new Vector2(520f, 60f));
+        tauntTile = MakeTile(c, "Taunt", "TAUNT\n[R-Click]", new Color(1f, 0.6f, 0.2f), br, new Vector2(-Margin, Margin), BigTile);
+        scareTile = MakeTile(c, "Scare", "SCARE\n[L-Click]", new Color(0.5f, 0.9f, 1f), br, new Vector2(-(Margin + BigTile), Margin), SmallTile);
+        ghostStatus = UIBuilder.Label(c, "GhostStatus", "", 22, white, TextAnchor.LowerRight, br, br, new Vector2(-24f, Margin + BigTile + 20f), new Vector2(520f, 60f));
         UIBuilder.AddOutline(ghostStatus);
-        tauntTile = MakeTile(c, "Taunt", "TAUNT\n[R-Click]", new Color(1f, 0.6f, 0.2f), br, new Vector2(-24f, 24f));
-        scareTile = MakeTile(c, "Scare", "SCARE\n[L-Click]", new Color(0.5f, 0.9f, 1f), br, new Vector2(-120f, 24f));
 
         gameOverText = UIBuilder.Label(c, "GameOver", "", 64, white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1200f, 400f));
         UIBuilder.AddOutline(gameOverText);
@@ -168,18 +170,37 @@ public class HUD : MonoBehaviour
         xpFill = fill.transform;
     }
 
-    CooldownTile MakeTile(Transform parent, string name, string label, Color color, Vector2 anchor, Vector2 pos)
+    CooldownTile MakeTile(Transform parent, string name, string label, Color color, Vector2 anchor, Vector2 pos, float size)
     {
-        var bg = UIBuilder.Img(parent, name, anchor, anchor, pos, new Vector2(88f, 88f), color);
-        var overlay = UIBuilder.Img(bg.transform, "Cooldown", new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(88f, 88f), new Color(0f, 0f, 0f, 0.7f));
+        Vector2 mid = new Vector2(0.5f, 0.5f);
+        float border = Mathf.Max(4f, size * 0.035f);
+
+        // Outline: a slightly bigger white circle behind the colored one
+        var outline = UIBuilder.Img(parent, name, anchor, anchor, pos, new Vector2(size + border * 2f, size + border * 2f), new Color(1f, 1f, 1f, 0.9f));
+        outline.sprite = ProceduralAssets.Circle;
+
+        var bg = UIBuilder.Img(outline.transform, "Fill", mid, mid, Vector2.zero, new Vector2(size, size), color);
+        bg.sprite = ProceduralAssets.Circle;
+
+        // Cooldown: dark pie that sweeps away like a clock
+        var overlay = UIBuilder.Img(bg.transform, "Cooldown", mid, mid, Vector2.zero, new Vector2(size, size), new Color(0f, 0f, 0f, 0.6f));
+        overlay.sprite = ProceduralAssets.Circle;
         overlay.type = Image.Type.Filled;
-        overlay.fillMethod = Image.FillMethod.Vertical;
-        overlay.fillOrigin = (int)Image.OriginVertical.Top;
+        overlay.fillMethod = Image.FillMethod.Radial360;
+        overlay.fillOrigin = (int)Image.Origin360.Top;
+        overlay.fillClockwise = true;
         overlay.fillAmount = 0f;
-        var lbl = UIBuilder.Label(bg.transform, "Label", label, 15, Color.white, TextAnchor.LowerCenter, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 4f), new Vector2(88f, 44f));
+
+        // Ability name + key, lower half of the circle
+        var lbl = UIBuilder.Label(bg.transform, "Label", label, Mathf.RoundToInt(size * 0.14f), Color.white, TextAnchor.MiddleCenter,
+                                mid, mid, new Vector2(0f, -size * 0.17f), new Vector2(size * 0.9f, size * 0.4f));
         UIBuilder.AddOutline(lbl);
-        var cd = UIBuilder.Label(bg.transform, "Seconds", "", 34, Color.white, TextAnchor.MiddleCenter, new Vector2(0.5f, 0.6f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(88f, 44f));
+
+        // Seconds remaining, upper half
+        var cd = UIBuilder.Label(bg.transform, "Seconds", "", Mathf.RoundToInt(size * 0.3f), Color.white, TextAnchor.MiddleCenter,
+                                mid, mid, new Vector2(0f, size * 0.15f), new Vector2(size, size * 0.4f));
         UIBuilder.AddOutline(cd);
+
         return new CooldownTile { overlay = overlay, cdText = cd };
     }
 
